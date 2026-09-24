@@ -1866,32 +1866,31 @@ fn recomputeInitialSize(
 
     const scale = self.rt_surface.getContentScale() catch
         return error.ContentScaleUnavailable;
-    const height = @max(
-        self.config.window_height,
-        min_window_height_cells,
-    ) * self.size.cell.height;
-    const width = @max(
+
+    // Our cell size and padding are in pixels but the apprt expects
+    // points, so we add the padding before converting. We use the
+    // configured padding rather than the current padding since balanced
+    // padding depends on the size.
+    const padding = self.config.scaledPadding(
+        scale.x * font.face.default_dpi,
+        scale.y * font.face.default_dpi,
+    );
+    const width: f32 = @floatFromInt(@max(
         self.config.window_width,
         min_window_width_cells,
-    ) * self.size.cell.width;
-    const width_f32: f32 = @floatFromInt(width);
-    const height_f32: f32 = @floatFromInt(height);
-
-    // The final values are affected by content scale and we need to
-    // account for the padding so we get the exact correct grid size.
-    const final_width: u32 =
-        @as(u32, @intFromFloat(@ceil(width_f32 / scale.x))) +
-        self.size.padding.left +
-        self.size.padding.right;
-    const final_height: u32 =
-        @as(u32, @intFromFloat(@ceil(height_f32 / scale.y))) +
-        self.size.padding.top +
-        self.size.padding.bottom;
+    ) * self.size.cell.width + padding.left + padding.right);
+    const height: f32 = @floatFromInt(@max(
+        self.config.window_height,
+        min_window_height_cells,
+    ) * self.size.cell.height + padding.top + padding.bottom);
 
     _ = self.rt_app.performAction(
         .{ .surface = self },
         .initial_size,
-        .{ .width = final_width, .height = final_height },
+        .{
+            .width = @intFromFloat(@ceil(width / scale.x)),
+            .height = @intFromFloat(@ceil(height / scale.y)),
+        },
     ) catch return error.AppActionFailed;
 }
 
